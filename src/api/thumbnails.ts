@@ -3,7 +3,9 @@ import { respondWithJSON } from "./json";
 import { getVideo, updateVideo, type Video } from "../db/videos";
 import type { ApiConfig } from "../config";
 import type { BunRequest } from "bun";
-import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";
+import { BadRequestError, UserForbiddenError } from "./errors";
+import { getAssetDiskPath, getAssetPath, getAssetURL, mediaTypeToExt } from "./assets";
+import crypto from "node:crypto";
 
 // type Thumbnail = {
 //   data: ArrayBuffer;
@@ -59,8 +61,11 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
   }
 
   const thumbnailType = thumbnail.type;
-  const thumbnailData = await thumbnail.arrayBuffer();
-  const thumbnailBuffer = Buffer.from(thumbnailData);
+
+  if (thumbnailType !== "image/jpeg" && thumbnailType !== "image/png") {
+    throw new BadRequestError("Invalid thumbnail type");
+  }
+
   const videoMetadata = getVideo(cfg.db, videoId);
 
   if (videoMetadata?.userID !== userID) {
@@ -68,14 +73,23 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
   }
 
 
+  const fileName = getAssetPath(thumbnailType);
+  const thumbnailPath = getAssetDiskPath(cfg, fileName);
+  try {
+    await Bun.write(thumbnailPath, thumbnail)
+  } catch (error) {
+    console.error("Error writing thumbnail to file", error);
+    throw new Error("Error writing thumbnail to file");
+  }
 
-  const thumbnailURL = `data:${thumbnailType};base64,${thumbnailBuffer.toString("base64")}`;
+  const thumbnailURL = getAssetURL(cfg, fileName);
 
   let updatedVideo: Video;
   updatedVideo = {
     ...videoMetadata,
     thumbnailURL,
   };
+  console.log("updatedVideo", updatedVideo);
   updateVideo(cfg.db, updatedVideo);
   return respondWithJSON(200, updatedVideo);
 }

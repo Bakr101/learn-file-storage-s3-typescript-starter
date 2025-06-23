@@ -19,7 +19,6 @@ export async function handlerVideoMetaCreate(cfg: ApiConfig, req: Request) {
     title,
     description,
   });
-
   return respondWithJSON(201, video);
 }
 
@@ -63,6 +62,5 @@ export async function handlerVideosRetrieve(cfg: ApiConfig, req: Request) {
   const userID = validateJWT(token, cfg.jwtSecret);
 
   const videos = getVideos(cfg.db, userID);
-  console.log(videos);
   return respondWithJSON(200, videos);
 }
